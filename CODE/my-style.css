@@ -1,0 +1,23 @@
+.small {font-size: 90%}
+
+.remark-slide-content p, ul, ol, li {
+  font-size: 15px;
+}
+
+.remark-code {
+  font-size: 11px;
+}
+
+.remark-code-inline {
+  font-size: 15px;
+}
+
+.expl-left {
+  float: left;
+  width: 33%;
+}
+
+.code-right {
+  float: right;
+  width: 66%;
+}

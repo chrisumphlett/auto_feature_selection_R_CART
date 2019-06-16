@@ -1,0 +1,351 @@
+---
+title: "Automatic Feature Selection using classification trees with R"
+subtitle: "An algorithmic approach to feature selection on high-dimensional data"
+author: "Chris Umphlett"
+date: "2019/06/15"
+output:
+  xaringan::moon_reader:
+    css: [default, "CODE\\my-style.css"]
+    lib_dir: libs
+    nature:
+      highlightStyle: github
+      highlightLines: true
+      countIncrementalSlides: false
+---
+class: inverse
+
+### Original application 
+
+I developed this algorithm as part of a project at Consumers Energy to classify incoming phone calls according to their reason for calling. We utilized a vendor system that recorded and transcribed the calls, providing us with ~ 300 different categories that could be present on a given call. With this data I then utilized naive bayes multi-class classification to label each call as one of five different groups of customer experiences.
+
+As part of that effort I knew I needed to do feature selection and multi-class classification. I did some research and came across [this paper by Ratanamahatana & Gunopulos](http://alumni.cs.ucr.edu/~ratana/DCAP02.pdf) which tried many different feature selection methods and then compared naive-bayes classification results. The best method was utilizing C4.5 trees. I decided to utilize this as the general framework for my approach.
+
+For the feature selection I elected to use recursive partioning trees (rpart) both because I have more familiarity with it, and because I was able to automate the feature selection rather than using the manual method from R & G's paper. Implementing this algorithmic feature selection, with no additional tuning or parameterization work, increased the accuracy of the naive-bayes call classification from 18.4% to 76.0%.
+
+---
+class: inverse
+
+### Adapting the feature selection algorithm
+
+R & G's paper selected features that were in the first 3 levels of the tree. I could not figure out how to do this with rpart, nor was I convinced I wanted to do that-- I did not want the number of selected features to be too low or else there would not be enough information to classify into five different customer experiences. Instead I determined that I could set a minimum threshold for desired features, slowly adjust the tree model so that it would have more features, and stop adjusting once it met the threshold. 
+
+As I developed and tested this approach I found that the rpart tree at most would include about 50 features. I tested thresholds of 20, 30 and 40 and 30 generally led to the best naive-bayes results.
+
+In order to demonstrate the algorithm I am going to use a [kaggle classification competition](https://www.kaggle.com/c/otto-group-product-classification-challenge/overview) that anyone can access, and which will provide a score to compare using all the features versus features selected by the algorithm.
+
+---
+class: inverse
+
+### R Markdown set up and data pre-processing
+
+No pre-processing is *required* to set up the Kaggle data for feature selection or classification. Those who did the best in the competition may have carried out extensive exploratory analysis and pre-processing. 
+
+```{r setup, include = TRUE, echo = TRUE, message = FALSE, warning = FALSE}
+options(htmltools.dir.version = FALSE)
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE, cache = TRUE)
+
+library(tidyverse)
+library(rpart)
+library(rpart.utils)
+library(e1071)
+```
+
+```{r data_import}
+train <- read_csv("DATA\\train.csv")
+```
+
+---
+class: inverse
+
+### Automatic feature selection with classification trees
+
+`rpart` is an R implementation of [*recursive partitioning*](https://en.wikipedia.org/wiki/Recursive_partitioning). There are many options that determine the depth and size of the tree result. By changing just the *complexity parameter* ("cp") alone you can greatly alter the size of the tree, but from one data set to another the same cp will yield very different tree sizes. I wanted to create a selection algorithm that would allow me to choose an approximate number of features returned by the algorithm. The `rpart.utils` package allows for extraction of the elements of the tree, enabling automatic selection.
+
+The selection threshold algorithm I designed:
+* Create tree utilizing starting cp value.
+* Compare # of features in the tree to the threshold.
+* If there are fewer features than threshold, divide cp by 2 and re-run and compare.
+* Repeat previous step until # of features in tree are greater than or equal to threshold.
+
+For the Kaggle data, which has over 90 features, I arbitrarily chose 15 as the minimum number of features to include.
+
+---
+class: inverse
+
+### Writing the automatic feature selection function
+
+.expl-left[
+
+* I start by creating a function that will have 2 constants and a loop
+  + `success` is a logical vector. When it flips from FALSE to TRUE, the loop will stop
+  + `complex_parm` is the initial value that will be used for the *complexity parameter* (cp), an option for the classification tree algorithm. The lower cp, the larger the final tree will be.
+  + The loop will conditionally repeat creating the tree until our feature selection threshold is met.
+]
+
+.code-right[
+``` {r create_rpart_fn1, echo = TRUE}
+run_rpart <- function() {
+  success <- FALSE
+  complex_parm <- .01
+ 
+  while(!success) {
+
+  }
+
+}
+```
+]
+
+---
+class: inverse
+
+### Writing the automatic feature selection function
+
+.expl-left[
+<br>
+<br>
+<br>
+* Print a note on the progression of the algorithm to the console
+* Create the tree and save as an object `rpart`
+]
+
+.code-right[
+``` {r create_rpart_fn2, echo = TRUE}
+run_rpart <- function() {
+  success <- FALSE
+  complex_parm <- .01
+
+  while(!success) {
+    print(paste0("Creating tree with complexity parameter of ", complex_parm)) #<<
+    rpart <- rpart(formula = target ~ ., data = tree, #<<
+                   control = rpart.control(cp = complex_parm)) #<<
+  }
+}
+```
+]
+
+---
+class: inverse
+
+### Writing the automatic feature selection function
+
+.expl-left[
+<br>
+<br>
+<br>
+<br>
+<br>
+
+* If there are features selected, setting up the `if` block to evaluate against the threshold
+* If no features, do nothing (the `else` block). Print a message to the console.
+* Either way, divide complexity parameter by 2
+]
+
+.code-right[
+``` {r create_rpart_fn3, echo = TRUE}
+run_rpart <- function() {
+  success <- FALSE
+  complex_parm <- .01
+  
+  while(!success) {
+    print(paste0("Creating tree with complexity parameter of ", complex_parm))
+    rpart <- rpart(formula = target ~ ., data = tree,
+                   control = rpart.control(cp = complex_parm))
+    if (length(levels(rpart$frame$var)) > 1) { #<<
+
+    } #<<
+    else{ #<<
+      print("Tree had no leaves, decreasing complexity parameter") #<<     
+    } #<<
+    complex_parm <- round(complex_parm / 2, 6) #<<
+  }
+
+}
+```
+]
+
+---
+
+class: inverse
+### Writing the automatic feature selection function
+
+.expl-left[
+
+<br>
+<br>
+<br>
+<br>
+
+* Build out the logic within the `if` block
+  + Get the list of features in the tree and store in `vars`. This extracts information from the tree and selects only the distinct feature list
+  + Count the features by getting length of that vector
+  + Add progress note to the console with number of features
+  + Do comparison to the threshold. `success` value determines whether or not the loop will run again with the new (lower) complexity parameter.
+]
+
+.code-right[
+``` {r create_rpart_fn4, echo = TRUE}
+run_rpart <- function() {
+  success <- FALSE
+  complex_parm <- .01
+
+  while(!success) {
+    print(paste0("Creating tree with complexity parameter of ", complex_parm))
+    rpart <- rpart(formula = target ~ ., data = tree,
+                   control = rpart.control(cp = complex_parm))
+    
+    if (length(levels(rpart$frame$var)) > 1) {
+      vars <- rpart.subrules.table(rpart) %>% #<<
+        mutate(features = as.character(Variable)) %>% #<<
+        select(features) %>% #<<
+        distinct() %>% #<<
+        pull() #<<
+      var_count <- length(vars) #<<
+      print(paste0(var_count, " dimensions used for tree")) #<<
+      success <- var_count >= 15 #<<
+    }
+    else{
+      print("Tree had no leaves, decreasing complexity parameter")
+    }
+    complex_parm <- round(complex_parm / 2, 6)
+  }
+}
+
+```
+]
+
+---
+class: inverse
+
+### Writing the automatic feature selection function
+
+.expl-left[
+
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+
+* Create the output of the function:
+  + `vars` will be the list of features selected
+  + `complex_parm` the final cp used
+  + `rpart` the tree object, for creating a plot
+* We're done! Now we need to execute the function and see how it works.
+]
+
+.code-right[
+``` {r create_rpart_fn5, echo = TRUE}
+run_rpart <- function() {
+  success <- FALSE
+  complex_parm <- .01
+
+  while(!success) {
+    print(paste0("Creating tree with complexity parameter of ", complex_parm))
+    rpart <- rpart(formula = target ~ ., data = tree,
+                   control = rpart.control(cp = complex_parm))
+    
+    if (length(levels(rpart$frame$var)) > 1) {
+      vars <- rpart.subrules.table(rpart) %>%
+        mutate(features = as.character(Variable)) %>%
+        select(features) %>%
+        distinct() %>%
+        pull()
+      var_count <- length(vars)
+      print(paste0(var_count, " dimensions used for tree"))
+      success <- var_count >= 15
+    }
+    else{
+      print("Tree had no leaves, decreasing complexity parameter")
+    }
+    complex_parm <- round(complex_parm / 2, 6)
+  }
+  results_lst <- list(vars, complex_parm, rpart) #<<
+  return(results_lst) #<<
+}
+
+```
+]
+
+---
+class: inverse
+
+### Executing the function
+
+* Highlighted line shows the function being executed
+* The elements of the list object result are each extracted
+
+```{r execute_feat_sel, echo = TRUE}
+tree <- train %>%
+  select(-id)
+
+lst_rp <- run_rpart() #<<
+```
+
+`rpart` iterates 3 times, stopping after a tree with 18 unique features is created.
+
+``` {r extract, echo = TRUE}
+features <- lst_rp[[1]]
+cp <- lst_rp[[2]]
+tree_obj <- lst_rp[[3]]
+```
+
+
+
+---
+class: inverse
+
+## Performance improvement of Naive-Bayes Classification
+
+.expl-left[
+Kaggle allows (and scores) late entries, but since the competition has closed you won't see my entry on the leaderboard. Kaggle scored this competition with "multi-class log-loss". My first entry, using all features, does very poorly: the log-loss is 18.48493, good for 3,384 out of 3,512 entries. The second entry is much better: the log-loss is 3.35364, which improves the finish to 2,987
+
+Considering that I did not do any exploratory data analysis, and only ran a single type of algorithm with no adjustments, the feature selection process generated a high return for little investment of time. This is a good starting point from which to take the jump into EDA and/or model tuning.
+
+Please use this feature selection process for your own models and let me know the results on twitter @chrisumphlett.
+]
+
+.code-right[
+``` {r create_test_pred, echo = TRUE}
+training_model <- train %>%
+  mutate(target = as.factor(target))
+
+training_model2 <- train %>%
+  select(features, target) %>%
+  mutate(target = as.factor(target))
+
+test <- read_csv("DATA\\test.csv")
+test_sel_feat <- test %>%
+  select(features)
+
+# run naive bayes classifier on full features and the selected features
+nb_model <- naiveBayes(target ~ ., data = training_model, laplace = 0)
+nb_model2 <- naiveBayes(target ~ ., data = training_model2, laplace = 0)
+
+# predict with all features
+test_all <- as_tibble(predict(nb_model, test, type = "raw"))
+test_all2 <- test %>%
+  select(id) %>%
+  cbind(test_all)
+
+# predict with selected features
+test_sel <- as_tibble(predict(nb_model2, test_sel_feat, type = "raw"))
+
+test_sel2 <- test %>%
+  select(id) %>%
+  cbind(test_sel)
+
+#create output that will be uploaded to Kaggle
+write_csv(test_all2, "OUTPUT\\pred_all_feat.csv")  
+write_csv(test_sel2, "OUTPUT\\pred_sel_15feat.csv")
+```
+]
