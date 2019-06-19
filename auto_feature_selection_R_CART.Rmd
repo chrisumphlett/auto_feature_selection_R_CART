@@ -50,7 +50,7 @@ library(rpart.utils)
 library(e1071)
 ```
 
-```{r data_import}
+```{r data_import, echo = TRUE}
 train <- read_csv("DATA\\train.csv")
 ```
 
